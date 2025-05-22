@@ -1,0 +1,164 @@
+-- Crear la interfaz de usuario (GUI)
+local player = game.Players.LocalPlayer
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player.PlayerGui
+
+-- Sección del panel de estadísticas
+local StatSection = Instance.new("Frame")
+StatSection.Size = UDim2.new(0, 300, 0, 250)
+StatSection.Position = UDim2.new(0.5, -150, 0.5, -100)
+StatSection.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+StatSection.BackgroundTransparency = 0.5
+StatSection.Parent = ScreenGui
+
+-- Crear la parte para arrastrar (DragFrame)
+local DragFrame = Instance.new("Frame")
+DragFrame.Size = UDim2.new(1, 0, 0, 50)  -- Tamaño para la parte superior que permite arrastrar
+DragFrame.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+DragFrame.BackgroundTransparency = 0.3
+DragFrame.Parent = StatSection
+
+-- Hacer que la interfaz sea movible
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+DragFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = StatSection.Position
+    end
+end)
+
+DragFrame.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        StatSection.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+DragFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Título de la sección
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Text = "AutoStats"
+titleLabel.Size = UDim2.new(1, 0, 0, 50)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 24
+titleLabel.Parent = StatSection
+
+-- Crear el botón de Dropdown para seleccionar la estadística
+local dropdown = Instance.new("TextButton")
+dropdown.Size = UDim2.new(1, 0, 0, 40)
+dropdown.Position = UDim2.new(0, 0, 0.2, 0)
+dropdown.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+dropdown.Text = "Select Stat"
+dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropdown.Font = Enum.Font.SourceSans
+dropdown.TextSize = 18
+dropdown.Parent = StatSection
+
+local selectedstat = nil
+
+-- Limitar las opciones a los poderes mencionados + Vitality
+local statsOptions = {"metalSkin", "telekinesis", "speed", "healing", "energy", "vitality"}
+
+-- Crear el botón para ingresar puntos
+local inputField = Instance.new("TextBox")
+inputField.Size = UDim2.new(1, 0, 0, 40)
+inputField.Position = UDim2.new(0, 0, 0.6, 0)
+inputField.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+inputField.PlaceholderText = "Enter Points (e.g. 42000)"
+inputField.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputField.Font = Enum.Font.SourceSans
+inputField.TextSize = 18
+inputField.Parent = StatSection
+
+-- Crear el Toggle para activar/desactivar AutoStats
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(1, 0, 0, 40)
+toggleButton.Position = UDim2.new(0, 0, 0.8, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleButton.Text = "Toggle AutoStats"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.SourceSans
+toggleButton.TextSize = 18
+toggleButton.Parent = StatSection
+
+-- Crear el frame para el dropdown de opciones
+local dropdownFrame = Instance.new("Frame")
+dropdownFrame.Size = UDim2.new(1, 0, 0, 200)
+dropdownFrame.Position = UDim2.new(0, 0, 0.3, 0)
+dropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+dropdownFrame.Visible = false
+dropdownFrame.Parent = StatSection
+
+-- Crear las opciones dentro del dropdown
+local function createDropdownOptions()
+    for i, stat in ipairs(statsOptions) do
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, 0, 0, 40)
+        button.Position = UDim2.new(0, 0, 0, (i - 1) * 40)
+        button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        button.Text = stat
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Font = Enum.Font.SourceSans
+        button.TextSize = 18
+        button.Parent = dropdownFrame
+        
+        -- Al hacer clic en una opción, actualizar la opción seleccionada
+        button.MouseButton1Click:Connect(function()
+            selectedstat = stat
+            dropdown.Text = "Selected: " .. stat
+            dropdownFrame.Visible = false
+        end)
+    end
+end
+
+createDropdownOptions()
+
+-- Función para activar/desactivar AutoStats
+local function toggleAutoStats(state)
+    if state then
+        getgenv().AutoStats = true
+        local pointsToAdd = tonumber(inputField.Text) or 0
+        
+        -- Asignación instantánea de puntos
+        local pointsPerCycle = 1000  -- Asignar 1k puntos por ciclo
+        while AutoStats and pointsToAdd > 0 do
+            local pointsThisCycle = math.min(pointsPerCycle, pointsToAdd)  -- Asegura que no se excedan los puntos restantes
+            pointsToAdd = pointsToAdd - pointsThisCycle  -- Actualiza los puntos restantes
+            
+            -- Asignar los puntos a la estadística seleccionada sin esperar
+            for i = 1, pointsThisCycle do
+                spawn(function()
+                    if selectedstat then
+                        -- Invocar el evento UpgradeAbility para cada punto
+                        game:GetService("ReplicatedStorage").Events.UpgradeAbility:InvokeServer(selectedstat)
+                    end
+                end)
+            end
+        end
+    else
+        getgenv().AutoStats = false
+    end
+end
+
+-- Al hacer clic en el botón de Dropdown, mostrar las opciones
+dropdown.MouseButton1Click:Connect(function()
+    dropdownFrame.Visible = not dropdownFrame.Visible
+end)
+
+-- Al hacer clic en el botón Toggle, activar/desactivar AutoStats
+toggleButton.MouseButton1Click:Connect(function()
+    local isToggled = toggleButton.Text == "Toggle AutoStats"
+    toggleButton.Text = isToggled and "Stop AutoStats" or "Toggle AutoStats"
+    toggleAutoStats(isToggled)
+end)
